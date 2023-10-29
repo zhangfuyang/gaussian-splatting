@@ -24,15 +24,24 @@ from gaussian_renderer import GaussianModel
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background):
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
+    mask_path = os.path.join(model_path, name, "ours_{}".format(iteration), "mask")
 
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
+    makedirs(mask_path, exist_ok=True)
 
+    # load gradient
+    gradient = torch.load(os.path.join(model_path, 'point_cloud', f"iteration_{iteration}", "grad.pt"), map_location='cpu')[:,0] #n
+    overide_color = torch.zeros_like(gaussians._features_dc.data)[:,0] #n 3
+    overide_color[gradient<0.0001] = 1
+    overide_color[gradient<=0] = 0
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         rendering = render(view, gaussians, pipeline, background)["render"]
+        mask = render(view, gaussians, pipeline, background, override_color=overide_color)["render"]
         gt = view.original_image[0:3, :, :]
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        torchvision.utils.save_image(mask, os.path.join(mask_path, '{0:05d}'.format(idx) + ".png"))
 
 def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool):
     with torch.no_grad():

@@ -41,7 +41,8 @@ class Scene:
         self.test_cameras = {}
 
         if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
+            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval, 
+                                                          random_init=args.random_init, llffhold=args.llffhold)
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)
@@ -61,6 +62,16 @@ class Scene:
                 json_cams.append(camera_to_JSON(id, cam))
             with open(os.path.join(self.model_path, "cameras.json"), 'w') as file:
                 json.dump(json_cams, file)
+    
+            # save train & test images
+            save_dir = os.path.join(args.model_path, 'train_images')
+            os.makedirs(save_dir, exist_ok=True)
+            for cam_info in scene_info.train_cameras:
+                os.system(f"cp {os.path.join(args.source_path, 'images_8', cam_info.image_name+'.JPG')} {os.path.join(save_dir, cam_info.image_name+'.JPG')}")
+            save_dir = os.path.join(args.model_path, 'test_images')
+            os.makedirs(save_dir, exist_ok=True)
+            for cam_info in scene_info.test_cameras:
+                os.system(f"cp {os.path.join(args.source_path, 'images_8', cam_info.image_name+'.JPG')} {os.path.join(save_dir, cam_info.image_name+'.JPG')}")
 
         if shuffle:
             random.shuffle(scene_info.train_cameras)  # Multi-res consistent random shuffling

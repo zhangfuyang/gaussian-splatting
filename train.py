@@ -108,6 +108,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
+                
+                # save gradient
+                grads = gaussians.xyz_gradient_accum / gaussians.denom
+                grads[grads.isnan()] = -1
+                grad_path = os.path.join(scene.model_path, "point_cloud/iteration_{}".format(iteration), "grad.pt")
+                torch.save(grads, grad_path)
 
             # Densification
             if iteration < opt.densify_until_iter:

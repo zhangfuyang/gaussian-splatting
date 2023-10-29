@@ -104,12 +104,17 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
     sys.stdout.write('\n')
     return cam_infos
 
-def fetchPly(path):
+def fetchPly(path, random_points=False):
     plydata = PlyData.read(path)
     vertices = plydata['vertex']
     positions = np.vstack([vertices['x'], vertices['y'], vertices['z']]).T
     colors = np.vstack([vertices['red'], vertices['green'], vertices['blue']]).T / 255.0
     normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
+    if random_points:
+        positions = np.random.rand(positions.shape[0], 3) * (positions.max() - positions.min()) + positions.min()
+        colors = np.random.rand(colors.shape[0], 3)
+        normals = np.zeros_like(normals)
+
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
 def storePly(path, xyz, rgb):
@@ -129,7 +134,7 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
+def readColmapSceneInfo(path, images, eval, llffhold=8, random_init=False):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -149,8 +154,9 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
         train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
         test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
     else:
-        train_cam_infos = cam_infos
-        test_cam_infos = []
+        #train_cam_infos = cam_infos
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == llffhold//2]
 
     nerf_normalization = getNerfppNorm(train_cam_infos)
 
@@ -165,7 +171,7 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
             xyz, rgb, _ = read_points3D_text(txt_path)
         storePly(ply_path, xyz, rgb)
     try:
-        pcd = fetchPly(ply_path)
+        pcd = fetchPly(ply_path, random_points=random_init)
     except:
         pcd = None
 
